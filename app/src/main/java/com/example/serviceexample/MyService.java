@@ -16,7 +16,7 @@ import com.amazonaws.services.sqs.model.SendMessageResult;
 
 import androidx.annotation.Nullable;
 
-=
+
 
 public class MyService extends Service {
     private MediaPlayer player;
@@ -28,8 +28,13 @@ public class MyService extends Service {
     }
 
     @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
+    public void onCreate() {
+        super.onCreate();
         player = MediaPlayer.create(this, Settings.System.DEFAULT_RINGTONE_URI);
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
         player.setLooping(true);
         player.start();
 
