@@ -22,10 +22,8 @@ public class SQSPoller {
                     }
                     try {
                         Log.d(TAG, "read... ");
-                        for (byte[] message : SQSTransport.receiveMessages("anything")) {
-                            String s = new String(message);
-
-                            Log.d(TAG, "message is"+s);
+                        for (String message : SQSTransport.receiveMessages("gobike-biker-notif")) {
+                            Log.d(TAG, "message received"+message);
                         }
                     } catch (Exception e) {
                         Log.e(TAG, e.getMessage());

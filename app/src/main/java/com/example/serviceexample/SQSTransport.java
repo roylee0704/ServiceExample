@@ -10,7 +10,6 @@ import com.amazonaws.services.sqs.model.DeleteMessageBatchRequestEntry;
 import com.amazonaws.services.sqs.model.Message;
 import com.amazonaws.services.sqs.model.ReceiveMessageRequest;
 import com.amazonaws.services.sqs.model.ReceiveMessageResult;
-import com.amazonaws.util.Base64;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,7 +21,6 @@ public class SQSTransport {
     private static String secretKey = "SECRET";
     private static final String TAG = "SQSTransport";
 
-    private static final ExecutorService sendThreadPool = Executors.newFixedThreadPool(3);
     private static final ExecutorService deleteThreadPool = Executors.newFixedThreadPool(1);
 
     private static AmazonSQSClient getClient() {
@@ -31,48 +29,34 @@ public class SQSTransport {
     }
 
 
-    private static String recvQueueURL(String pairing) {
-        return "https://sqs.ap-southeast-1.amazonaws.com/439299810195/gobike-biker-notif";
+    private static String recvQueueURL(String queueName) {
+        return "https://sqs.ap-southeast-1.amazonaws.com/439299810195/"+ queueName;
     }
 
-//    public static void sendMessage(Pairing pairing, NetworkMessage message) throws TransportException {
-//        sendThreadPool.submit(() -> {
-//            try {
-//                sendMessageJob(pairing, message);
-//            } catch (TransportException e) {
-//                e.printStackTrace();
-//            }
-//        });
-//    }
 
-//    private static void sendMessageJob(Pairing pairing, NetworkMessage message) throws TransportException {
-//        AmazonSQSClient cl    ient = getClient();
-//        client.sendMessage(recvQueueURL(pairing), Base64.encodeAsString(message.bytes()));
-//    }
-
-    public static List<byte[]> receiveMessages(final String pairing) throws Exception {
+    public static List<String> receiveMessages(String queueName) throws Exception {
         final AmazonSQSClient client = getClient();
-        ReceiveMessageRequest request = new ReceiveMessageRequest(recvQueueURL(pairing));
-        request.setWaitTimeSeconds(20);
-        request.setMaxNumberOfMessages(10);
+
+        Log.d(TAG, "Queue URL:"+recvQueueURL(queueName));
+
+        ReceiveMessageRequest request = new ReceiveMessageRequest(recvQueueURL(queueName));
+        request.setWaitTimeSeconds(20);    // long polling period.
+        request.setMaxNumberOfMessages(1);
         ReceiveMessageResult result = client.receiveMessage(request);
 
         final List<DeleteMessageBatchRequestEntry> deleteEntries = new ArrayList<>();
 
-        ArrayList<byte[]> messages = new ArrayList<byte[]>();
+        ArrayList<String> messages = new ArrayList<String>();
         for (Message m : result.getMessages()) {
             deleteEntries.add(new DeleteMessageBatchRequestEntry(m.getMessageId(), m.getReceiptHandle()));
-            try {
-                messages.add(Base64.decode(m.getBody()));
-            } catch (Exception e) {
-                Log.e(TAG, "failed to decode message: " + e.getMessage());
-            }
+            Log.d(TAG, m.getBody());
+            messages.add(m.getBody());
         }
 
         if (!deleteEntries.isEmpty()) {
             deleteThreadPool.submit(() -> {
                 try {
-                    DeleteMessageBatchRequest deleteRequest = new DeleteMessageBatchRequest(recvQueueURL(pairing))
+                    DeleteMessageBatchRequest deleteRequest = new DeleteMessageBatchRequest(recvQueueURL(queueName))
                             .withEntries(deleteEntries);
                     client.deleteMessageBatch(deleteRequest);
                 } catch (Exception e) {
